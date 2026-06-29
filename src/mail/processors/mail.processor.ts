@@ -5,6 +5,7 @@ import { MailService } from '../mail.service';
 import { UserCreatedEvent } from '@/user/events/user-created.event';
 import { Logger } from '@nestjs/common';
 import { PasswordResetRequestedEvent } from '@/user/events/password-reset-requested.event';
+import { VerificationRequestedEvent } from '@/user/events/verification-requested.event';
 @Processor(MAIL_QUEUE)
 export class MailProcessor extends WorkerHost {
   private logger = new Logger(MailProcessor.name);
@@ -15,11 +16,15 @@ export class MailProcessor extends WorkerHost {
   async process(job: Job) {
     switch (job.name) {
       case MAIL_JOBS.SEND_MAIL_VERIFICATION: {
-        await this.handleSendVerificationEmail(job as Job<UserCreatedEvent>);
+        await this.handleSendVerificationEmail(
+          job as Job<VerificationRequestedEvent>,
+        );
         break;
       }
       case MAIL_JOBS.SEND_PASSWORD_RESET: {
-        await this.handlePasswordResetMail(job as Job<UserCreatedEvent>);
+        await this.handlePasswordResetMail(
+          job as Job<PasswordResetRequestedEvent>,
+        );
         break;
       }
       default: {
@@ -33,7 +38,7 @@ export class MailProcessor extends WorkerHost {
   }
 
   private async handleSendVerificationEmail(
-    job: Job<UserCreatedEvent>,
+    job: Job<VerificationRequestedEvent>,
   ): Promise<void> {
     const payload = job.data;
     try {
@@ -62,7 +67,7 @@ export class MailProcessor extends WorkerHost {
           jobId: job.id,
           attemptsMade: job.attemptsMade,
         },
-        'Verification email job failed',
+        'Password reset email job failed',
       );
       throw error;
     }

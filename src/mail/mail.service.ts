@@ -3,7 +3,6 @@ import { OtpService } from '@/otp/otp.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
-import { UserCreatedEvent } from '@/user/events/user-created.event';
 import { VerificationRequestedEvent } from '@/user/events/verification-requested.event';
 import { PasswordResetRequestedEvent } from '@/user/events/password-reset-requested.event';
 
@@ -20,7 +19,6 @@ export class MailService {
   constructor(
     @Inject('RESEND_CLIENT') private readonly resend: Resend,
     private readonly configService: ConfigService,
-    private readonly otpService: OtpService,
   ) {
     this.serverEmail = this.configService.getOrThrow<string>('RESEND_EMAIL');
   }
@@ -28,11 +26,10 @@ export class MailService {
   async sendVerificationMail(
     payload: VerificationRequestedEvent,
   ): Promise<void> {
-    const { email } = payload.user;
-    const otp = await this.otpService.generateAndStore(email, 'verify-email');
+    const { user, otp } = payload;
 
     const { error } = await this.resend.emails.send({
-      to: email,
+      to: user.email,
       from: this.serverEmail,
       subject: MAIL_SUBJECTS.VERIFY_EMAIL,
       html: `<p>Your verification code is: <strong>${otp}</strong></p>`,
@@ -40,7 +37,7 @@ export class MailService {
 
     if (error) {
       this.logger.error(
-        { email: maskEmail(email), reason: error.message },
+        { email: maskEmail(user.email), reason: error.message },
         'Send verification email failed',
       );
       throw new Error('Failed to send verification email');
@@ -50,8 +47,10 @@ export class MailService {
   async sendResetPasswordMail(
     payload: PasswordResetRequestedEvent,
   ): Promise<void> {
-    const { email } = payload.user;
-    const otp = await this.otpService.generateAndStore(email, 'reset-password');
+    const {
+      otp,
+      user: { email },
+    } = payload;
 
     const { error } = await this.resend.emails.send({
       to: email,

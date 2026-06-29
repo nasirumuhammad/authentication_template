@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -28,6 +27,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { PasswordResetRequestedEvent } from '@/user/events/password-reset-requested.event';
 import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshToken } from '@/refresh-token/entities/refresh-token.entity';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AuthService {
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly refreshTokenService: RefreshTokenService,
     private readonly eventEmitter: EventEmitter2,
     private readonly otpService: OtpService,
+    private readonly dataSource: DataSource,
   ) {
     this.refreshSecret =
       this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -56,7 +58,10 @@ export class AuthService {
       this.configService.getOrThrow<StringValue>('JWT_RESET_EXPIRY');
   }
 
-  async validateUser(email: string, password: string): Promise<User | null> {
+  private async validateUser(
+    email: string,
+    password: string,
+  ): Promise<User | null> {
     const user = await this.userService.findOneByEmail(email);
     if (!user) {
       this.logger.warn(
@@ -84,9 +89,14 @@ export class AuthService {
   async signup(payload: CreateUserDto): Promise<string> {
     const user = await this.userService.create(payload);
     this.logger.log({ userId: user.id }, 'User signed up successfully');
+    const otp = await this.otpService.generateAndStore(
+      user.email,
+      'verify-email',
+    );
+
     this.eventEmitter.emit(
       USER_EVENTS.VERIFICATION_REQUESTED,
-      new VerificationRequestedEvent(user),
+      new VerificationRequestedEvent(user, otp),
     );
     return 'Account created successfully. Check your email for verification.';
   }
@@ -98,6 +108,13 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException(
+        'Please verify your email before signing in.',
+      );
+    }
+    if (!user.isActive) throw new UnauthorizedException('Account is inactive.');
+
     const tokens = await this.generateTokenPair(user);
     this.logger.log({ userId: user.id }, 'User signed in successfully');
     return tokens;
@@ -124,12 +141,15 @@ export class AuthService {
       return RESPONSE;
     }
     if (user.isEmailVerified) {
-      throw new ConflictException('Email already verified.');
+      return RESPONSE;
     }
-
+    const otp = await this.otpService.generateAndStore(
+      user.email,
+      'verify-email',
+    );
     this.eventEmitter.emit(
       USER_EVENTS.VERIFICATION_REQUESTED,
-      new VerificationRequestedEvent(user),
+      new VerificationRequestedEvent(user, otp),
     );
     this.logger.log(
       { email: maskEmail(payload.email) },
@@ -142,10 +162,22 @@ export class AuthService {
     const RESPONSE = 'If that email is registered, a reset code has been sent.';
     const user = await this.userService.findOneByEmail(payload.email);
     if (!user) return RESPONSE;
-    this.eventEmitter.emit(
-      USER_EVENTS.PASSWORD_RESET_REQUESTED,
-      new PasswordResetRequestedEvent(user),
+    const otp = await this.otpService.generateAndStore(
+      payload.email,
+      'reset-password',
     );
+
+    try {
+      this.eventEmitter.emit(
+        USER_EVENTS.PASSWORD_RESET_REQUESTED,
+        new PasswordResetRequestedEvent(user, otp),
+      );
+    } catch (err) {
+      this.logger.error(
+        { userId: user.id },
+        'Failed to dispatch password reset event',
+      );
+    }
     this.logger.log(
       { email: maskEmail(user.email) },
       'Password reset email dispatched',
@@ -195,6 +227,75 @@ export class AuthService {
     return 'Password reset successfully. Please sign in with your new password.';
   }
 
+  async refresh(payload: Payload & { refreshToken: string }) {
+    const AUTH_FAILED = 'Authentication failed. Please sign in again.';
+
+    const user = await this.userService.findOneById(payload.sub);
+    if (!user) {
+      this.logger.warn(
+        { userId: payload.sub },
+        'user not found during token refresh',
+      );
+      throw new UnauthorizedException(AUTH_FAILED);
+    }
+
+    if (user.tokenVersion !== payload.version) {
+      this.logger.warn(
+        { userId: payload.sub },
+        'token version mismatch token revoked',
+      );
+      throw new UnauthorizedException(AUTH_FAILED);
+    }
+
+    let tokenToRotate: RefreshToken | null =
+      await this.refreshTokenService.findByJti(payload.jti);
+
+    if (!tokenToRotate) {
+      await this.refreshTokenService.deleteAllUserTokens(payload.sub);
+      this.logger.warn(
+        { userId: payload.sub },
+        'token replay detected — all sessions invalidated',
+      );
+      throw new UnauthorizedException(AUTH_FAILED);
+    }
+
+    const rotatedTokenId = tokenToRotate.id;
+
+    const newTokens = await this.dataSource.transaction(async (manager) => {
+      await this.refreshTokenService.deleteByIdWithManager(
+        manager,
+        rotatedTokenId,
+      );
+      const tokens = await this.generateTokenPair(user);
+      await this.refreshTokenService.createWithManager({
+        manager,
+        userId: user.id,
+        token: tokens.refreshToken,
+        jti: tokens.jti,
+      });
+      return tokens;
+    });
+
+    this.logger.log(
+      { email: maskEmail(user.email) },
+      'refresh token rotated successfully',
+    );
+
+    const { jti: _, ...tokens } = newTokens;
+    return tokens;
+  }
+
+  async signOut(payload: User & { jti: string }) {
+    const { jti, id } = payload;
+    await this.refreshTokenService.deleteByJti(jti);
+    this.logger.log({ userId: id }, '');
+  }
+
+  async signOutAllDevices(userId: string): Promise<void> {
+    await this.refreshTokenService.deleteAllUserTokens(userId);
+    this.logger.log({ userId }, 'user signed out of all devices');
+  }
+
   private buildPayload(user: User): Payload {
     return {
       sub: user.id,
@@ -220,13 +321,14 @@ export class AuthService {
   private async generateTokenPair(user: User): Promise<{
     accessToken: string;
     refreshToken: string;
+    jti: string;
   }> {
     const payload = this.buildPayload(user);
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(payload),
       this.generateRefreshToken(payload),
     ]);
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, jti: payload.jti };
   }
 
   private generateResetToken(user: User): string {

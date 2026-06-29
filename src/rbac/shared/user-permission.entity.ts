@@ -13,7 +13,10 @@ export class UserPermission {
   })
   user!: User;
 
-  @ManyToOne(() => Permission, (permission) => permission.userPermissions)
+  @ManyToOne(() => Permission, (permission) => permission.userPermissions, {
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE',
+  })
   permission!: Permission;
 
   @Column({ default: true })

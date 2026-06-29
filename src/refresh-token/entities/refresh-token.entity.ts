@@ -13,6 +13,9 @@ export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ type: 'varchar', length: 255, unique: true })
+  jti!: string;
+
   @Column({ type: 'varchar', length: 512 })
   hashedToken!: string;
 

@@ -27,7 +27,6 @@ import { MailModule } from './mail/mail.module';
     ScheduleModule.forRoot(),
     BullModule.forRootAsync(bullConfig),
     CommonModule,
-    UserModule,
     RoleModule,
     PermissionModule,
     RolePermissionModule,

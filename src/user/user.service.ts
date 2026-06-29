@@ -71,7 +71,10 @@ export class UserService {
   }
 
   async findOneById(id: string) {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: { userRoles: { role: true } },
+    });
     return user;
   }
 
@@ -86,13 +89,13 @@ export class UserService {
   async update(id: string, payload: UpdateUserDto): Promise<User> {
     const user = await this.findOneById(id);
 
-    if (payload.password) {
-      payload.password = await this.hashingService.hash(payload.password);
-    }
-
     if (!user) {
       this.logger.warn({ userId: id }, 'update user: user not found');
       throw new NotFoundException();
+    }
+
+    if (payload.password) {
+      payload.password = await this.hashingService.hash(payload.password);
     }
 
     Object.assign(user, payload);
@@ -102,7 +105,8 @@ export class UserService {
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.findOneById(id);
+    const user = await this.findOneById(id);
+    if (!user) throw new NotFoundException();
     await this.userRepository.softDelete({ id });
     this.logger.log({ userId: id }, 'User soft-deleted');
   }
@@ -130,6 +134,7 @@ export class UserService {
       throw new BadRequestException('Invalid request');
     }
     const hashedPassword = await this.hashingService.hash(password);
+    user.tokenVersion += 1;
     Object.assign(user, { password: hashedPassword });
     await this.userRepository.save(user);
   }

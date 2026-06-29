@@ -1,4 +1,4 @@
-import { IsEmail, MaxLength, MinLength, Matches } from 'class-validator';
+import { IsEmail, MaxLength, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 export class CreateUserDto {
   @IsEmail()
@@ -6,7 +6,6 @@ export class CreateUserDto {
   email!: string;
 
   @Transform(({ value }) => String(value).trim())
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\@\$\!\%\*\?\&])[A-Za-z\d\@\$\!\%\*\?\&]{8,}$/,
     {

@@ -7,7 +7,6 @@ import { BullModule } from '@nestjs/bullmq';
 import { MAIL_QUEUE } from '@/common/constants/mail.constant';
 import { OtpModule } from '@/otp/otp.module';
 import { VericationRequestedListener } from './listeners/verification-requested.listener';
-import { PasswordResetRequestedEvent } from '@/user/events/password-reset-requested.event';
 import { PasswordResetRequestedListener } from './listeners/password-reset-requested.listener';
 @Module({
   imports: [BullModule.registerQueue({ name: MAIL_QUEUE }), OtpModule],

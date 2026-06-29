@@ -1,18 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { LessThan, Repository } from 'typeorm';
+import { EntityManager, LessThan, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { InjectPinoLogger, Logger } from 'nestjs-pino';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { HashingService } from '@/common/services/hashing.service';
 
 @Injectable()
 export class RefreshTokenService {
+  private logger = new Logger(RefreshTokenService.name);
   constructor(
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
-    @InjectPinoLogger(RefreshTokenService.name) private readonly logger: Logger,
     private readonly configService: ConfigService,
+    private readonly hashingService: HashingService,
   ) {}
 
   private parseExpiry(expiry: string): Date {
@@ -38,20 +39,41 @@ export class RefreshTokenService {
     const expiresIn =
       this.configService.getOrThrow<string>('JWT_REFRESH_EXPIRY');
     const expiredAt = this.parseExpiry(expiresIn);
-
+    const hashedToken = await this.hashingService.hash(token);
     const refreshToken = this.refreshTokenRepository.create({
       user: { id: userId },
-      hashedToken: token,
+      hashedToken: hashedToken,
       expiredAt,
     });
 
     await this.refreshTokenRepository.save(refreshToken);
   }
 
-  async findAllByUserId(userId: string): Promise<RefreshToken[]> {
-    return this.refreshTokenRepository.find({
-      where: { user: { id: userId } },
-      order: { createdAt: 'ASC' },
+  async createWithManager(payload: {
+    manager: EntityManager;
+    userId: string;
+    token: string;
+    jti: string;
+  }): Promise<void> {
+    const { manager, token, userId, jti } = payload;
+    const expiresIn =
+      this.configService.getOrThrow<string>('JWT_REFRESH_EXPIRY');
+    const expiredAt = this.parseExpiry(expiresIn);
+    const hashedToken = await this.hashingService.hash(token);
+
+    const refreshToken = manager.create(RefreshToken, {
+      user: { id: userId },
+      hashedToken,
+      expiredAt,
+      jti,
+    });
+
+    await manager.save(refreshToken);
+  }
+
+  async findByJti(jti: string): Promise<RefreshToken | null> {
+    return this.refreshTokenRepository.findOne({
+      where: { jti },
     });
   }
 
@@ -59,16 +81,27 @@ export class RefreshTokenService {
     await this.refreshTokenRepository.delete({ user: { id: userId } });
   }
 
-  async deleteById(id: string): Promise<void> {
-    await this.refreshTokenRepository.delete({ id });
+  async deleteByJti(jti: string) {
+    await this.refreshTokenRepository.delete({ jti });
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_10AM)
+  async deleteByIdWithManager(
+    manager: EntityManager,
+    id: string,
+  ): Promise<void> {
+    await manager.delete(RefreshToken, { id });
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async deleteExpiredTokens(): Promise<void> {
-    this.logger.log('Running expired refresh token cleanup...');
-    const result = await this.refreshTokenRepository.delete({
-      expiredAt: LessThan(new Date()),
-    });
-    this.logger.log(`Deleted ${result.affected} expired refresh tokens`);
+    this.logger.log('Running expired refresh token cleanup');
+    try {
+      const result = await this.refreshTokenRepository.delete({
+        expiredAt: LessThan(new Date()),
+      });
+      this.logger.log(`Deleted ${result.affected ?? 0} expired refresh tokens`);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to delete expired refresh tokens');
+    }
   }
 }

@@ -2,6 +2,7 @@ import { MAIL_JOBS, MAIL_QUEUE } from '@/common/constants/mail.constant';
 import { maskEmail } from '@/common/utils/mask.util';
 import { USER_EVENTS } from '@/user/common/user.constant';
 import { UserCreatedEvent } from '@/user/events/user-created.event';
+import { VerificationRequestedEvent } from '@/user/events/verification-requested.event';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -13,7 +14,7 @@ export class VericationRequestedListener {
   constructor(@InjectQueue(MAIL_QUEUE) private readonly mailQueue: Queue) {}
 
   @OnEvent(USER_EVENTS.VERIFICATION_REQUESTED)
-  async handle(event: UserCreatedEvent) {
+  async handle(event: VerificationRequestedEvent) {
     try {
       await this.mailQueue.add(MAIL_JOBS.SEND_MAIL_VERIFICATION, event, {
         attempts: 3,
@@ -21,6 +22,8 @@ export class VericationRequestedListener {
           type: 'exponential',
           delay: 1000 * 20,
         },
+        removeOnComplete: 100,
+        removeOnFail: 100,
       });
     } catch (error) {
       this.logger.error(

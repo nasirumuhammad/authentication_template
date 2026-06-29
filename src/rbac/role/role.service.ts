@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -8,15 +9,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from './entities/role.entity';
 import { Repository } from 'typeorm';
 import { CreateRoleDto } from './dto/create-role.dto';
-import { InjectPinoLogger, Logger } from 'nestjs-pino';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { SEED_ROLES } from './constants/roles.constant';
 
 @Injectable()
 export class RoleService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(RoleService.name);
   constructor(
     @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
-    @InjectPinoLogger(RoleService.name) private readonly logger: Logger,
   ) {}
 
   async onApplicationBootstrap() {

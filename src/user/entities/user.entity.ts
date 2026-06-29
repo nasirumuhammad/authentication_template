@@ -43,10 +43,7 @@ export class User {
   @OneToMany(() => UserRole, (userRole) => userRole.user)
   userRoles!: UserRole[];
 
-  @OneToMany(
-    () => UserPermission,
-    (userpermission) => userpermission.permission,
-  )
+  @OneToMany(() => UserPermission, (up) => up.user)
   permissions!: UserPermission[];
 
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)

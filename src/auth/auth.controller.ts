@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '@/user/dto/create-user.dto';
 import { SignInDto } from './dto/sign-in.dto';
@@ -7,6 +15,9 @@ import { ResendVerifiicationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { JwtAuthGuard } from './guards/jwt.guard';
+import { User } from '@/user/entities/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -52,5 +63,30 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtRefreshGuard)
+  @Post('refresh')
+  refreshToken(
+    @Request() req,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.authService.refresh(req.user);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Post('sign-out')
+  signOut(@Request() req): Promise<void> {
+    return this.authService.signOut(req.user);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Post('sign-out-all')
+  async signOutAllDevices(
+    @Request() req: Request & { user: User & { jti: string } },
+  ): Promise<void> {
+    return this.authService.signOutAllDevices(req.user.id);
   }
 }

@@ -21,6 +21,8 @@ export class PasswordResetRequestedListener {
           type: 'exponential',
           delay: 1000 * 20,
         },
+        removeOnComplete: 100,
+        removeOnFail: 100,
       });
     } catch (error) {
       this.logger.error(

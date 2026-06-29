@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
 import Redis from 'ioredis';
-import { Purpose } from './types/purpose.type';
+import { Purpose } from '../common/types/purpose.type';
 
 @Injectable()
 export class OtpService {
