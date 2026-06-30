@@ -114,7 +114,7 @@ export class UserService {
   async markEmailVerified(email: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      this.logger.log(
+      this.logger.warn(
         { email: maskEmail(email) },
         'mark email verfied: could not find user by email',
       );
@@ -127,7 +127,7 @@ export class UserService {
   async resetPassword(email: string, password: string) {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      this.logger.log(
+      this.logger.warn(
         { email: maskEmail(email) },
         'reset password:user not found',
       );

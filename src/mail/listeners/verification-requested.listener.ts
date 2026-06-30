@@ -25,6 +25,13 @@ export class VericationRequestedListener {
         removeOnComplete: 100,
         removeOnFail: 100,
       });
+      this.logger.log(
+        {
+          jobName: MAIL_JOBS.SEND_MAIL_VERIFICATION,
+          email: maskEmail(event.user.email),
+        },
+        'Send mail verification mail job enqueued',
+      );
     } catch (error) {
       this.logger.error(
         { email: maskEmail(event.user.email), error },

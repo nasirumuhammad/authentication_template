@@ -5,6 +5,7 @@ import { Logger } from 'nestjs-pino';
 import { formatValidationErrors } from './common/utils/validation.util';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -17,7 +18,7 @@ async function bootstrap() {
       },
     }),
   );
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(new ResponseInterceptor(), new AuditInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useLogger(app.get(Logger));
   app.flushLogs();

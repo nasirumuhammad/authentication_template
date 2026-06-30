@@ -98,6 +98,24 @@ export class AuthService {
       USER_EVENTS.VERIFICATION_REQUESTED,
       new VerificationRequestedEvent(user, otp),
     );
+
+    this.logger.log(
+      { event: USER_EVENTS.VERIFICATION_REQUESTED, userId: user.id },
+      'Verification requested event emitted',
+    );
+
+    try {
+      this.eventEmitter.emit(
+        USER_EVENTS.VERIFICATION_REQUESTED,
+        new VerificationRequestedEvent(user, otp),
+      );
+    } catch (error) {
+      this.logger.error(
+        { userId: user.id },
+        'Failed to dispatch Verification requested event',
+      );
+    }
+
     return 'Account created successfully. Check your email for verification.';
   }
 
@@ -109,11 +127,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
     if (!user.isEmailVerified) {
+      this.logger.warn({ userId: user.id }, 'Sign in: email not verified');
       throw new UnauthorizedException(
         'Please verify your email before signing in.',
       );
     }
-    if (!user.isActive) throw new UnauthorizedException('Account is inactive.');
+    if (!user.isActive) {
+      this.logger.warn({ userId: user.id }, 'Sign in: account is inactive');
+      throw new UnauthorizedException('Account is inactive.');
+    }
 
     const tokens = await this.generateTokenPair(user);
     this.logger.log({ userId: user.id }, 'User signed in successfully');
@@ -128,7 +150,10 @@ export class AuthService {
     });
 
     await this.userService.markEmailVerified(payload.email);
-
+    this.logger.log(
+      { email: maskEmail(payload.email) },
+      'Email verified successfully',
+    );
     return 'Email verified successfully';
   }
 
@@ -138,19 +163,40 @@ export class AuthService {
     const RESPONSE = 'If that email is registered, a new code has been sent.';
     const user = await this.userService.findOneByEmail(payload.email);
     if (!user) {
+      this.logger.warn(
+        { email: maskEmail(payload.email) },
+        'Resend verification: email not registered',
+      );
       return RESPONSE;
     }
     if (user.isEmailVerified) {
+      this.logger.warn(
+        { userId: user.id },
+        'Resend verification: email already verified',
+      );
       return RESPONSE;
     }
     const otp = await this.otpService.generateAndStore(
       user.email,
       'verify-email',
     );
-    this.eventEmitter.emit(
-      USER_EVENTS.VERIFICATION_REQUESTED,
-      new VerificationRequestedEvent(user, otp),
-    );
+
+    try {
+      this.eventEmitter.emit(
+        USER_EVENTS.VERIFICATION_REQUESTED,
+        new VerificationRequestedEvent(user, otp),
+      );
+      this.logger.log(
+        { event: USER_EVENTS.VERIFICATION_REQUESTED, userId: user.id },
+        'Verification requested event emitted',
+      );
+    } catch (error) {
+      this.logger.error(
+        { userId: user.id },
+        'Failed to dispatch Verification requested event',
+      );
+    }
+
     this.logger.log(
       { email: maskEmail(payload.email) },
       'Verification email resent',
@@ -161,7 +207,13 @@ export class AuthService {
   async forgotPassword(payload: ForgotPasswordDto): Promise<string> {
     const RESPONSE = 'If that email is registered, a reset code has been sent.';
     const user = await this.userService.findOneByEmail(payload.email);
-    if (!user) return RESPONSE;
+    if (!user) {
+      this.logger.warn(
+        { email: maskEmail(payload.email) },
+        'Forgot password: email not registered',
+      );
+      return RESPONSE;
+    }
     const otp = await this.otpService.generateAndStore(
       payload.email,
       'reset-password',
@@ -288,7 +340,7 @@ export class AuthService {
   async signOut(payload: User & { jti: string }) {
     const { jti, id } = payload;
     await this.refreshTokenService.deleteByJti(jti);
-    this.logger.log({ userId: id }, '');
+    this.logger.log({ userId: id }, 'User signed out of current session');
   }
 
   async signOutAllDevices(userId: string): Promise<void> {
@@ -349,6 +401,10 @@ export class AuthService {
         secret: this.resetSecret,
       });
     } catch {
+      this.logger.warn(
+        {},
+        'Reset token verification failed: invalid or expired token',
+      );
       throw new BadRequestException('Reset token is invalid or expired');
     }
   }

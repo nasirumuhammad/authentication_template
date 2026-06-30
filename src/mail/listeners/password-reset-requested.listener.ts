@@ -24,6 +24,13 @@ export class PasswordResetRequestedListener {
         removeOnComplete: 100,
         removeOnFail: 100,
       });
+      this.logger.log(
+        {
+          jobName: MAIL_JOBS.SEND_PASSWORD_RESET,
+          email: maskEmail(event.user.email),
+        },
+        'Send password reset Mail job enqueued',
+      );
     } catch (error) {
       this.logger.error(
         { email: maskEmail(event.user.email), error },
