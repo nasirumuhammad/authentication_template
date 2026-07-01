@@ -1,9 +1,9 @@
 import { Permission } from '@/rbac/permission/entities/permission.entity';
 import { RolePermission } from '@/rbac/role-permission/entities/role-permission.entity';
 import { Role } from '@/rbac/role/entities/role.entity';
-import { UserPermission } from '@/rbac/shared/user-permission.entity';
+import { UserPermission } from '@/rbac/user-permission/entities/user-permission.entity';
 import { RefreshToken } from '@/refresh-token/entities/refresh-token.entity';
-import { UserRole } from '@/user/entities/user-roles.entity';
+import { UserRole } from '@/rbac/user-role/entities/user-roles.entity';
 import { User } from '@/user/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';

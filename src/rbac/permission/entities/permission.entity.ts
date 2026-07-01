@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { RolePermission } from '../../role-permission/entities/role-permission.entity';
-import { UserPermission } from '../../shared/user-permission.entity';
+import { UserPermission } from '@/rbac/user-permission/entities/user-permission.entity';
 
 @Entity('permissions')
 export class Permission {

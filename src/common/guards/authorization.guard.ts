@@ -68,7 +68,7 @@ export class AuthorizationGuard implements CanActivate {
     const cached = await this.authCacheService.get(userId);
     if (cached) return cached;
 
-    const userWithRelations = await this.userService.findOneById(userId);
+    const userWithRelations = await this.userService.findOneByIdWithAuthorization(userId);
 
     const roles = userWithRelations?.userRoles?.map((ur) => ur.role.name) ?? [];
 

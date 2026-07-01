@@ -26,7 +26,4 @@ export class UserPermission {
 
   @CreateDateColumn()
   createdAt!: Date;
-
-  @DeleteDateColumn()
-  deletedAt!: Date | null;
 }

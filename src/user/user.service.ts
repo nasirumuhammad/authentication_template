@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { UserRole } from '@/user/entities/user-roles.entity';
+import { UserRole } from '@/rbac/user-role/entities/user-roles.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HashingService } from '@/common/services/hashing.service';
@@ -90,7 +90,6 @@ export class UserService {
   async findOneByEmail(email: string) {
     const user = await this.userRepository.findOne({
       where: { email },
-      relations: { userRoles: { role: true } },
     });
     return user;
   }

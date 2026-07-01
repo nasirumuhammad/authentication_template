@@ -94,10 +94,6 @@ export class AuthService {
       'verify-email',
     );
 
-    this.eventEmitter.emit(
-      USER_EVENTS.VERIFICATION_REQUESTED,
-      new VerificationRequestedEvent(user, otp),
-    );
 
     this.logger.log(
       { event: USER_EVENTS.VERIFICATION_REQUESTED, userId: user.id },

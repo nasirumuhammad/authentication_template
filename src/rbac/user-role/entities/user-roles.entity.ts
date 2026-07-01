@@ -1,6 +1,6 @@
 import { Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from './user.entity';
-import { Role } from '../../rbac/role/entities/role.entity';
+import { User } from '../../../user/entities/user.entity';
+import { Role } from '../../role/entities/role.entity';
 
 @Entity('user_roles')
 export class UserRole {
