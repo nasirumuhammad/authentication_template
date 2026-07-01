@@ -73,9 +73,18 @@ export class UserService {
   async findOneById(id: string) {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: { userRoles: { role: true } },
     });
     return user;
+  }
+
+  async findOneByIdWithAuthorization(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: {
+        userRoles: { role: { rolePermissions: { permission: true } } },
+        userPermissions: { permission: true },
+      },
+    });
   }
 
   async findOneByEmail(email: string) {
@@ -137,5 +146,13 @@ export class UserService {
     user.tokenVersion += 1;
     Object.assign(user, { password: hashedPassword });
     await this.userRepository.save(user);
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find();
+  }
+
+  async incrementTokenVersion(id: string): Promise<void> {
+    await this.userRepository.increment({ id }, 'tokenVersion', 1);
   }
 }

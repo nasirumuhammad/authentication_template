@@ -17,6 +17,7 @@ import { UserModule } from './user/user.module';
 import { BullModule } from '@nestjs/bullmq';
 import { bullConfig } from './common/configs/bull.config';
 import { MailModule } from './mail/mail.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -26,12 +27,14 @@ import { MailModule } from './mail/mail.module';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     BullModule.forRootAsync(bullConfig),
+    RedisModule,
     CommonModule,
     RoleModule,
     PermissionModule,
     RolePermissionModule,
     AuthModule,
     MailModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

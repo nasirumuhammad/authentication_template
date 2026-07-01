@@ -48,4 +48,7 @@ export class User {
 
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens!: RefreshToken[];
+
+  @OneToMany(() => UserPermission, (up) => up.user)
+  userPermissions!: UserPermission[];
 }

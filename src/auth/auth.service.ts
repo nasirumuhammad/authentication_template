@@ -353,7 +353,6 @@ export class AuthService {
       sub: user.id,
       jti: randomUUID(),
       version: user.tokenVersion,
-      role: user.userRoles?.map((ur) => ur.role) ?? [],
     };
   }
 

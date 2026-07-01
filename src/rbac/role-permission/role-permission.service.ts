@@ -6,15 +6,16 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { RolePermission } from './entities/role-permission.entity';
+import { Repository } from 'typeorm';
+import { SEED_ROLE_PERMISSIONS } from './constants/role-permission.constant';
 import { RoleService } from '../role/role.service';
 import { PermissionService } from '../permission/permission.service';
-import { SEED_ROLE_PERMISSIONS } from './constants/role-permission.constant';
 
 @Injectable()
 export class RolePermissionService implements OnApplicationBootstrap {
-  private logger = new Logger(RolePermissionService.name);
+  private readonly logger = new Logger(RolePermissionService.name);
+
   constructor(
     @InjectRepository(RolePermission)
     private readonly rolePermissionRepository: Repository<RolePermission>,
@@ -22,20 +23,28 @@ export class RolePermissionService implements OnApplicationBootstrap {
     private readonly permissionService: PermissionService,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
-    setImmediate(async () => await this.seed());
+  async onApplicationBootstrap() {
+    setImmediate(async () => {
+      await this.roleService.seed();
+      await this.permissionService.seed();
+      await this.seed();
+    });
   }
 
   async seed(): Promise<void> {
     for (const { roleName, permissionKey } of SEED_ROLE_PERMISSIONS) {
       const role = await this.roleService.findOneByName(roleName);
+      if (!role) {
+        this.logger.warn({ roleName }, 'role-permission seed: role not found');
+        continue;
+      }
+
       const permission =
         await this.permissionService.findOneByKey(permissionKey);
-
-      if (!role || !permission) {
+      if (!permission) {
         this.logger.warn(
-          { roleName, permissionKey },
-          'Seed skipped: role or permission not found',
+          { permissionKey },
+          'role-permission seed: permission not found',
         );
         continue;
       }
@@ -45,11 +54,14 @@ export class RolePermissionService implements OnApplicationBootstrap {
       });
       if (existing) continue;
 
-      await this.rolePermissionRepository.save(
-        this.rolePermissionRepository.create({ role, permission }),
-      );
+      const rolePermission = this.rolePermissionRepository.create({
+        role: { id: role.id },
+        permission: { id: permission.id },
+      });
+      await this.rolePermissionRepository.save(rolePermission);
     }
-    console.log('Role permissions seeded');
+
+    this.logger.log('Role-permission seed completed');
   }
 
   async create(

@@ -4,11 +4,10 @@ export type Payload = {
   sub: string;
   jti: string;
   version: number;
-  role: Role[];
 };
 
 export type ResetPasswordPayload = {
-  sub: string; // userId
+  sub: string;
   email: string;
   purpose: 'reset-password';
 };

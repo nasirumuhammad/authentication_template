@@ -13,23 +13,15 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { SEED_ROLES } from './constants/roles.constant';
 
 @Injectable()
-export class RoleService implements OnApplicationBootstrap {
+export class RoleService {
   private readonly logger = new Logger(RoleService.name);
   constructor(
     @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
   ) {}
 
-  async onApplicationBootstrap() {
-    setImmediate(async () => {
-      await this.seed();
-    });
-  }
-
   async seed() {
     await this.roleRepository.upsert(SEED_ROLES, { conflictPaths: ['name'] });
-    console.log(
-      `${JSON.stringify({ roles: SEED_ROLES.map((r) => r.name) })} Roles seeded`,
-    );
+    this.logger.log({ roles: SEED_ROLES.map((r) => r.name) }, 'Roles seeded');
   }
 
   async create(payload: CreateRoleDto) {

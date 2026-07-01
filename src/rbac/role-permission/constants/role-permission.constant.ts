@@ -1,11 +1,24 @@
-import { RoleName } from '@/rbac/role/constants/roles.constant';
+import { DEFAULT_PERMISSIONS } from "@/rbac/permission/constants/permission.constant";
+import { DEFAULT_ROLE } from "@/rbac/role/constants/roles.constant";
+
 
 export const SEED_ROLE_PERMISSIONS: {
-  roleName: RoleName;
+  roleName: string;
   permissionKey: string;
 }[] = [
-  { roleName: 'customer', permissionKey: 'orders:create' },
-  { roleName: 'customer', permissionKey: 'orders:read' },
-  { roleName: 'admin', permissionKey: 'orders:read' },
-  { roleName: 'admin', permissionKey: 'orders:delete' },
+  // Admin gets everything
+  ...Object.values(DEFAULT_PERMISSIONS).map((permissionKey) => ({
+    roleName: DEFAULT_ROLE.ADMIN,
+    permissionKey,
+  })),
+
+  // Customer gets profile-level access only
+  {
+    roleName: DEFAULT_ROLE.CUSTOMER,
+    permissionKey: DEFAULT_PERMISSIONS.USER_READ,
+  },
+  {
+    roleName: DEFAULT_ROLE.CUSTOMER,
+    permissionKey: DEFAULT_PERMISSIONS.USER_UPDATE,
+  },
 ];

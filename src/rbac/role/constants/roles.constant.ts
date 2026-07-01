@@ -1,5 +1,5 @@
 export const DEFAULT_ROLE = {
-  CUSTOMER: 'customer',
+  CUSTOMER: 'user',
   ADMIN: 'admin',
 } as const;
 
